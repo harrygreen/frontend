@@ -6,7 +6,6 @@
 
 module.exports = function (grunt) {
     //import modules
-    grunt.loadNpmTasks('grunt-typescript');
     grunt.loadNpmTasks('grunt-contrib-watch');
     grunt.loadNpmTasks('grunt-contrib-connect');
     grunt.loadNpmTasks('grunt-open');
@@ -16,7 +15,6 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks('grunt-contrib-clean');
     grunt.loadNpmTasks('grunt-contrib-copy');
     grunt.loadNpmTasks('grunt-server-mocha');
-    grunt.loadNpmTasks('grunt-tslint');
     grunt.loadNpmTasks('grunt-contrib-uglify');
     grunt.loadNpmTasks('grunt-html-snapshot');
 
@@ -49,19 +47,14 @@ module.exports = function (grunt) {
             }
         },
 
-        //Compilers
-        //compile typescript to ECMA5
-        typescript: {
-            base: {
-                src: ['<%= timeout.app %>/**/*.ts'],
-                dest: '<%= timeout.dev %>/js',
-                options: {
-                    base_path: '<%= timeout.app %>/scripts',
-                    module: 'amd',
-                    target: 'es5',
-                    sourcemap: true
-                }
-            }
+        concat: {
+            options: {
+                separator: ';',
+            },
+            dist: {
+                src: ['node_modules/jquery/dist/jquery.js'],
+                dest: 'dev/scripts/core.js',
+            },
         },
 
         //Compile less
@@ -83,14 +76,10 @@ module.exports = function (grunt) {
                 files: ['<%= timeout.app %>/styles/**/*.less' ],
                 tasks: ['less']
             },
-            typescript: {
+            js : {
                 options: { livereload: true },
-                files: '<%= timeout.app %>/**/*.ts',
-                tasks: [
-                'tslint',
-                'typescript',
-                'mocha-server',
-                'uglify']
+                files: ['<%= timeout.app %>/scripts/**/*.js' ],
+                tasks: ['copy:js', 'uglify']
             },
             tests: { // On Javascript Change run tests
                 options: { livereload: true },
@@ -99,7 +88,7 @@ module.exports = function (grunt) {
             },
             gruntfile: {
                 options: { livereload: true },
-                files: ['Gruntfile.js']
+                files: ['GruntFile.js']
             },
             templates: {
                 options: { livereload: true },
@@ -141,6 +130,13 @@ module.exports = function (grunt) {
                 dest: '<%= timeout.dev %>/snapshots',
                 filter: 'isFile',
                 flatten: true
+            },
+            js: {
+                expand: true,
+                src:  '<%= timeout.app %>/scripts/*',
+                dest: '<%= timeout.dev %>/scripts',
+                filter: 'isFile',
+                flatten: true
             }
         },
 
@@ -156,15 +152,6 @@ module.exports = function (grunt) {
             },
         },
 
-        tslint: {
-            options: {
-                configuration: grunt.file.readJSON("node_modules/grunt-tslint/tslint.json")
-            },
-            files: {
-                src: ['<%= timeout.app %>/scripts/**/*.ts']
-            },
-        },
-
         uglify: {
             options: {
               banner: '/*! <%= pkg.name %> - v<%= pkg.version %> - ' +
@@ -173,7 +160,7 @@ module.exports = function (grunt) {
             my_target: {
               files: [{
                   expand: true,
-                  cwd: '<%= timeout.dev %>/js',
+                  cwd: '<%= timeout.dev %>/scripts',
                   src: '**/*.js',
                   dest: '<%= timeout.dist %>/js'
               }]
@@ -259,13 +246,14 @@ module.exports = function (grunt) {
 
     grunt.registerTask('build', function () {
         grunt.task.run([
-            'clean',            
+            'clean',
+            'customBuild_jquery',   
+            'concat',       
             'mocha-server',
-            'typescript',
             'less',
             'copy',
             'uglify'
-            ]);
+        ]);
     });
 
     grunt.registerTask('snapshot', function () {
@@ -278,10 +266,8 @@ module.exports = function (grunt) {
 
         grunt.task.run([            
             'build',
-            'mocha-server',
             'connect',
             'open',
-            'customBuild_jquery',
             'watch' //watch is a blocking action, should run at the end
         ]);
     });
