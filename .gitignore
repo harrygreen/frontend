@@ -2,3 +2,5 @@ dist/*
 dev/*
 node_modules/*
 app/snapshots/*
+
+.DS_Store

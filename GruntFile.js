@@ -7,16 +7,18 @@
 module.exports = function (grunt) {
     //import modules
     grunt.loadNpmTasks('grunt-contrib-watch');
-    grunt.loadNpmTasks('grunt-contrib-connect');
-    grunt.loadNpmTasks('grunt-open');
+   // grunt.loadNpmTasks('grunt-contrib-connect');
+   // grunt.loadNpmTasks('grunt-open');
     grunt.loadNpmTasks('grunt-contrib-less');
+    grunt.loadNpmTasks('grunt-contrib-cssmin');
     grunt.loadNpmTasks('grunt-contrib-concat');
-    grunt.loadNpmTasks('grunt-jquerybuilder');
+    grunt.loadNpmTasks('grunt-jquery-builder');
     grunt.loadNpmTasks('grunt-contrib-clean');
     grunt.loadNpmTasks('grunt-contrib-copy');
     grunt.loadNpmTasks('grunt-server-mocha');
     grunt.loadNpmTasks('grunt-contrib-uglify');
     grunt.loadNpmTasks('grunt-html-snapshot');
+    grunt.loadNpmTasks('grunt-contrib-jshint');
 
     grunt.initConfig({
 
@@ -24,20 +26,27 @@ module.exports = function (grunt) {
         
         timeout: {
             app: 'app',
-            dist: 'dist',
-            dev: 'dev',
-            tests: 'tests',
-            jquery_src: 'node_modules/jquery/src/'
+            dev: '../web/dev',
+            dist: '../web/',
+            tests: 'tests'
         },
 
         dist: {
             options: {
-             base: '<%= timeout.dist %>'
+                base: '<%= timeout.dist %>'
             }
         },
 
+        clean: {
+            options: { force: true },
+            all: ["<%= timeout.dev %>", "<%= timeout.dist %>/css", "<%= timeout.dist %>/js", "cache"],
+            dev: ["<%= timeout.dev %>"],
+            dist: ["<%= timeout.dist %>/css", "<%= timeout.dist %>/js"],
+            cache: ["cache"]
+        },
+
         //Setup a server for testing and preview
-        connect: {
+/*        connect: {
             server: {
                 options: {
                   port: 8080,
@@ -45,27 +54,56 @@ module.exports = function (grunt) {
                   livereload: 35729
                 }
             }
+        },*/
+
+        jquery: {
+            dev: {
+                options: {
+                    prefix: "jquery-"
+                },
+                output: "<%= timeout.dev %>/js/core",
+                versions: {
+                  "1.9.0": [], //works negatively // 'ajax' , 'effects' etc
+                }
+            }
         },
 
         concat: {
             options: {
-                separator: ';',
+                separator: ';\n',
             },
             dist: {
-                src: ['node_modules/jquery/dist/jquery.js'],
-                dest: 'dev/scripts/core.js',
-            },
+                src: ['<%= timeout.dev %>/js/core/**/*.js'],
+                dest: '<%= timeout.dist %>/js/core.js',
+            }
+        },
+
+        uglify: {
+            core: {
+                files: {
+                    '<%= timeout.dist %>/js/core.min.js': ['<%= timeout.dist %>/js/core.js']
+                }
+            }
         },
 
         //Compile less
         less: {
             base: {
                 options: {
-                    paths: ['<%= timeout.app %>/styles']
+                    paths: ['<%= timeout.app %>/less']
                 },
                 files: {
-                    '<%= timeout.dev %>/styles/timeout.css' : '<%= timeout.app %>/styles/timeout.less'
+                    '<%= timeout.dev %>/css/timeout.css' : '<%= timeout.app %>/less/timeout.less'
                 }
+            }
+        },
+        cssmin: {
+            minify: {
+                expand: true,
+                cwd: '<%= timeout.dev %>/css/',
+                src: ['*.css', '!*.min.css'],
+                dest: '<%= timeout.dist %>/css/',
+                ext: '.min.css'
             }
         },
 
@@ -73,14 +111,18 @@ module.exports = function (grunt) {
         watch: {
             less: {
                 options: { livereload: true },
-                files: ['<%= timeout.app %>/styles/**/*.less' ],
+                files: ['<%= timeout.app %>/less/**/*.less' ],
                 tasks: ['less']
             },
             js : {
                 options: { livereload: true },
-                files: ['<%= timeout.app %>/scripts/**/*.js' ],
-                tasks: ['copy:js', 'uglify']
+                files: ['<%= timeout.app %>/js/**/*.js' ],
+                tasks: ['copy:js_core', 'uglify']
             },
+           /* jshint : {
+                files: ['<%= jshint.files %>'],
+                tasks: ['jshint']
+            },*/
             tests: { // On Javascript Change run tests
                 options: { livereload: true },
                 files: '<%= timeout.tests %>/**/*.js',
@@ -98,18 +140,11 @@ module.exports = function (grunt) {
         },
 
         //open browser to this address, probably v4.d/index
-        open: {
+       /* open: {
             dev: {
                 path: 'http://localhost:8080/dev/'
             }
-        },
-
-        clean: {
-            all: ["dev", "dist", "cache"],
-            dev: ["dev"],
-            dist: ["dist"],
-            cache: ["cache"]
-        },
+        },*/
 
         copy: {
             index: {
@@ -131,12 +166,25 @@ module.exports = function (grunt) {
                 filter: 'isFile',
                 flatten: true
             },
-            js: {
+            js_core: {
                 expand: true,
-                src:  '<%= timeout.app %>/scripts/*',
-                dest: '<%= timeout.dev %>/scripts',
+                src:  '<%= timeout.app %>/js/core/**/*.js',
+                dest: '<%= timeout.dev %>/js/core/',
                 filter: 'isFile',
                 flatten: true
+            }
+        },
+
+        jshint: {
+            files: ['Gruntfile.js', '<%= timeout.dev %>/js/**/*.js', '<%= timeout.dist %>/js/**/*.js'],
+            options: {
+                // options here to override JSHint defaults
+                globals: {
+                    jQuery: true,
+                    console: true,
+                    module: true,
+                    document: true
+                }
             }
         },
 
@@ -150,21 +198,6 @@ module.exports = function (grunt) {
                     reporter: 'nyan',
                 },
             },
-        },
-
-        uglify: {
-            options: {
-              banner: '/*! <%= pkg.name %> - v<%= pkg.version %> - ' +
-                '<%= grunt.template.today("yyyy-mm-dd") %> */'
-            },
-            my_target: {
-              files: [{
-                  expand: true,
-                  cwd: '<%= timeout.dev %>/scripts',
-                  src: '**/*.js',
-                  dest: '<%= timeout.dist %>/js'
-              }]
-            }
         },
 
         htmlSnapshot: {
@@ -224,21 +257,21 @@ module.exports = function (grunt) {
         }
     });
 
-
+/*
     grunt.registerTask('customBuild_jquery', function () {
         var done = this.async();
         grunt.util.spawn({
             grunt: true,
             args: [''], //works negatively // 'ajax' , 'effects' etc
             opts: {
-                cwd: 'node_modules/jquery'
+                cwd: 'app/js/core/jquery'
             }
         }, function (err, result, code) {
             grunt.log.warn('A custom jquery version has been built.');
             done();
         });
     });
-
+*/
 
     grunt.registerTask('test', function () {
         grunt.task.run(['mocha-server']);
@@ -247,11 +280,15 @@ module.exports = function (grunt) {
     grunt.registerTask('build', function () {
         grunt.task.run([
             'clean',
-            'customBuild_jquery',   
-            'concat',       
             'mocha-server',
             'less',
+            'cssmin',
             'copy',
+            
+            
+            'jquery',
+            //            'jshint',
+            'concat',
             'uglify'
         ]);
     });
@@ -266,8 +303,8 @@ module.exports = function (grunt) {
 
         grunt.task.run([            
             'build',
-            'connect',
-            'open',
+            //'connect',
+            //'open',
             'watch' //watch is a blocking action, should run at the end
         ]);
     });
